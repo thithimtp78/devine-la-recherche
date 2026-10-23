@@ -1,0 +1,21 @@
+{
+  "name": "devine-la-recherche",
+  "version": "1.0.0",
+  "description": "Jeu multijoueur en ligne : devine la recherche derrière une image",
+  "scripts": {
+    "test": "node test/simulate.js",
+    "start": "node server/index.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.3.0",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

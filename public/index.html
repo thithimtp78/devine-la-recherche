@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Devine la recherche</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <h1 class="logo"><span class="g">D</span><span class="r">e</span><span class="y">v</span><span class="g">i</span><span class="b">n</span><span class="r">e</span> la recherche</h1>
+    <div id="roomBadge" class="badge hidden"></div>
+  </header>
+
+  <main id="app">
+    <!-- Accueil -->
+    <section id="home" class="screen">
+      <p class="lead">Une image tirée d'un moteur de recherche. À toi de deviner ce qu'on a tapé pour la trouver.</p>
+      <label class="field">Ton pseudo
+        <input id="name" maxlength="20" autocomplete="nickname" placeholder="Ex. Thierry" />
+      </label>
+      <button id="createBtn" class="btn primary">Créer une room</button>
+      <div class="or">ou</div>
+      <div class="join">
+        <input id="codeInput" maxlength="4" placeholder="CODE" autocapitalize="characters" />
+        <button id="joinBtn" class="btn">Rejoindre</button>
+      </div>
+      <details class="rules">
+        <summary>Comment on joue ?</summary>
+        <ol>
+          <li>Chacun reçoit une image secrète trouvée avec une vraie recherche.</li>
+          <li>Tu écris la recherche que tu imagines derrière cette image.</li>
+          <li>Un autre joueur lit ta phrase et doit retrouver ton image parmi 4.</li>
+          <li>Bonne image trouvée : +1 pour lui et +1 pour toi. Chaque mot de la vraie recherche que tu as deviné : +1 (max 3).</li>
+        </ol>
+      </details>
+    </section>
+
+    <!-- Salle d'attente -->
+    <section id="lobby" class="screen hidden">
+      <div class="share">
+        <div class="code-big" id="lobbyCode"></div>
+        <button id="copyLink" class="btn small">Copier le lien d'invitation</button>
+      </div>
+      <h2>Joueurs</h2>
+      <ul id="lobbyPlayers" class="players"></ul>
+      <div id="hostSettings" class="settings hidden">
+        <label>Manches <input type="number" id="setRounds" min="1" max="10" /></label>
+        <label>Temps pour écrire (s) <input type="number" id="setWrite" min="15" max="180" /></label>
+        <label>Temps pour deviner (s) <input type="number" id="setGuess" min="10" max="120" /></label>
+      </div>
+      <button id="startBtn" class="btn primary hidden">Lancer la partie</button>
+      <p id="waitHost" class="muted hidden">En attente de l'hôte…</p>
+      <button id="leaveBtn" class="btn ghost">Quitter la room</button>
+    </section>
+
+    <!-- Chargement des images -->
+    <section id="loading" class="screen hidden">
+      <div class="spinner"></div>
+      <p>On cherche des images…</p>
+    </section>
+
+    <!-- Phase 1 : écrire la recherche -->
+    <section id="write" class="screen hidden">
+      <div class="phase-head"><span class="round"></span><span class="timer"></span></div>
+      <h2>Quelle recherche a donné cette image ?</h2>
+      <div class="frame"><img id="writeImg" alt="Image mystère" /></div>
+      <form id="writeForm" class="searchbar">
+        <span class="icon">🔍</span>
+        <input id="phraseInput" maxlength="80" placeholder="Tape ta recherche…" autocomplete="off" />
+        <button class="btn primary">Valider</button>
+      </form>
+      <p id="writeDone" class="muted hidden"></p>
+      <ul class="players mini"></ul>
+    </section>
+
+    <!-- Phase 2 : deviner l'image -->
+    <section id="guess" class="screen hidden">
+      <div class="phase-head"><span class="round"></span><span class="timer"></span></div>
+      <p class="muted">Recherche de <b id="guessAuthor"></b> :</p>
+      <div class="searchbar readonly"><span class="icon">🔍</span><span id="guessPhrase"></span></div>
+      <h2>Quelle image correspond ?</h2>
+      <div id="options" class="grid"></div>
+      <p id="guessDone" class="muted hidden">Choix envoyé, on attend les autres…</p>
+      <ul class="players mini"></ul>
+    </section>
+
+    <!-- Spectateur (arrivé en cours de manche) -->
+    <section id="spectate" class="screen hidden">
+      <p>Une manche est en cours. Tu joueras à la prochaine !</p>
+      <ul class="players mini"></ul>
+    </section>
+
+    <!-- Résultats de la manche -->
+    <section id="reveal" class="screen hidden">
+      <div class="phase-head"><span class="round"></span></div>
+      <h2>Résultats</h2>
+      <div id="results"></div>
+      <h2>Scores</h2>
+      <ol id="scores" class="scores"></ol>
+      <button id="nextBtn" class="btn primary hidden">Manche suivante</button>
+      <p id="waitNext" class="muted hidden">L'hôte lance la suite…</p>
+    </section>
+
+    <!-- Fin de partie -->
+    <section id="end" class="screen hidden">
+      <h2>Fin de la partie 🎉</h2>
+      <ol id="finalScores" class="scores podium"></ol>
+      <button id="againBtn" class="btn primary hidden">Rejouer</button>
+      <button id="toLobbyBtn" class="btn hidden">Retour à la salle</button>
+      <p id="waitAgain" class="muted hidden">L'hôte peut relancer une partie.</p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
