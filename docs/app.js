@@ -1,6 +1,10 @@
+import { Host, Guest } from './net.js';
+import { setProvider } from './images.js';
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
-const socket = io();
+const params = new URLSearchParams(location.search);
+if (params.get('images')) setProvider(params.get('images'));
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -17,7 +21,7 @@ let state = null;
 let skew = 0; // décalage horloge serveur - client
 
 $('#name').value = store.get('dlr.name') || '';
-const urlCode = new URLSearchParams(location.search).get('room');
+const urlCode = params.get('room');
 if (urlCode) $('#codeInput').value = urlCode.toUpperCase();
 
 function toast(msg) {
@@ -55,25 +59,81 @@ function name() {
   return n;
 }
 
-function joined(res) {
-  if (res?.error) {
-    store.set('dlr.room', null);
-    return toast(res.error);
+let net = null; // Host ou Guest
+const send = (type, data) => net?.send(type, data) ?? Promise.resolve();
+
+function onState(s) {
+  const prevPhase = state?.phase;
+  const prevRound = state?.roundNo;
+  state = s;
+  skew = s.now - Date.now();
+  render(prevPhase !== s.phase || prevRound !== s.roundNo);
+}
+
+function goHome(msg) {
+  net?.close();
+  net = null;
+  state = null;
+  store.set('dlr.room', null);
+  store.set('dlr.role', null);
+  params.delete('room');
+  history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`);
+  $('#roomBadge').classList.add('hidden');
+  setBusy(false);
+  show('home');
+  if (msg) toast(msg);
+}
+
+function inRoom(code, role) {
+  store.set('dlr.room', code);
+  store.set('dlr.role', role);
+  params.set('room', code);
+  history.replaceState(null, '', `${location.pathname}?${params}`);
+}
+
+function setBusy(busy, label) {
+  $('#createBtn').disabled = $('#joinBtn').disabled = busy;
+  $('#createBtn').textContent = busy && label === 'create' ? 'Création…' : 'Créer une room';
+  $('#joinBtn').textContent = busy && label === 'join' ? 'Connexion…' : 'Rejoindre';
+}
+
+async function createRoom(n, code) {
+  setBusy(true, 'create');
+  const host = new Host(playerId, onState);
+  try {
+    net = host;
+    inRoom(await host.open(n, code), 'host');
+  } catch (err) {
+    console.error(err);
+    goHome(err.type === 'unavailable-id' ? 'Ce code est déjà pris, réessaie.' : 'Impossible de créer la room (connexion).');
   }
-  store.set('dlr.room', res.code);
-  history.replaceState(null, '', `?room=${res.code}`);
+}
+
+async function joinRoom(code, n) {
+  setBusy(true, 'join');
+  const guest = new Guest(playerId, onState, () => goHome('Connexion perdue : l’hôte a quitté la partie.'));
+  net = guest;
+  let res;
+  try {
+    res = await guest.open(code, n);
+  } catch (err) {
+    console.error(err);
+    res = { error: 'Impossible de joindre le service de connexion.' };
+  }
+  if (res?.error) return goHome(res.error);
+  inRoom(code, 'guest');
 }
 
 $('#createBtn').onclick = () => {
   const n = name();
-  if (n) socket.emit('create', { playerId, name: n }, joined);
+  if (n) createRoom(n);
 };
 $('#joinBtn').onclick = () => {
   const n = name();
   const code = $('#codeInput').value.trim().toUpperCase();
   if (!n) return;
   if (code.length !== 4) return toast('Le code fait 4 lettres');
-  socket.emit('join', { code, playerId, name: n }, joined);
+  joinRoom(code, n);
 };
 $('#codeInput').addEventListener('keydown', (e) => e.key === 'Enter' && $('#joinBtn').click());
 
@@ -86,43 +146,35 @@ $('#copyLink').onclick = async () => {
     prompt('Copie ce lien :', link);
   }
 };
-$('#leaveBtn').onclick = () => {
-  socket.emit('leave');
-  store.set('dlr.room', null);
-  state = null;
-  history.replaceState(null, '', location.pathname);
-  $('#roomBadge').classList.add('hidden');
-  show('home');
-};
+$('#leaveBtn').onclick = () => goHome();
 
 for (const [sel, key] of [['#setRounds', 'rounds'], ['#setWrite', 'writeTime'], ['#setGuess', 'guessTime']]) {
-  $(sel).addEventListener('change', (e) => socket.emit('settings', { ...state.settings, [key]: e.target.value }));
+  $(sel).addEventListener('change', (e) => send('settings', { ...state.settings, [key]: e.target.value }));
 }
-$('#startBtn').onclick = () => socket.emit('start', null, (r) => r?.error && toast(r.error));
-$('#againBtn').onclick = () => socket.emit('start', null, (r) => r?.error && toast(r.error));
-$('#toLobbyBtn').onclick = () => socket.emit('lobby');
-$('#nextBtn').onclick = () => socket.emit('next');
+const start = () => send('start').then((r) => r?.error && toast(r.error));
+$('#startBtn').onclick = start;
+$('#againBtn').onclick = start;
+$('#toLobbyBtn').onclick = () => send('lobby');
+$('#nextBtn').onclick = () => send('next');
 
 $('#writeForm').onsubmit = (e) => {
   e.preventDefault();
   const v = $('#phraseInput').value.trim();
   if (!v) return toast('Écris une recherche');
-  socket.emit('phrase', v);
+  send('phrase', v);
 };
 
-// Reconnexion automatique (rafraîchissement de page, coupure réseau).
-socket.on('connect', () => {
+// Retour dans la room après un rafraîchissement de page. L'hôte recrée sa room avec le même code
+// (la partie en cours est perdue, les autres joueurs se reconnectent tout seuls).
+{
   const code = store.get('dlr.room');
-  if (code) socket.emit('join', { code, playerId, name: store.get('dlr.name') }, joined);
-});
+  const n = store.get('dlr.name');
+  if (code && n && (!urlCode || urlCode.toUpperCase() === code)) {
+    store.get('dlr.role') === 'host' ? createRoom(n, code) : joinRoom(code, n);
+  }
+}
 
-socket.on('state', (s) => {
-  const prevPhase = state?.phase;
-  const prevRound = state?.roundNo;
-  state = s;
-  skew = s.now - Date.now();
-  render(prevPhase !== s.phase || prevRound !== s.roundNo);
-});
+window.addEventListener('beforeunload', () => net?.close());
 
 function playersList(el, { scores = false } = {}) {
   el.innerHTML = state.players
@@ -211,7 +263,7 @@ function render(phaseChanged) {
         img.alt = '';
         setImg(img, image);
         b.appendChild(img);
-        b.onclick = () => socket.emit('guess', i);
+        b.onclick = () => send('guess', i);
         box.appendChild(b);
       });
     }

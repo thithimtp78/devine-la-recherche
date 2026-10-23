@@ -6,7 +6,6 @@ const STOPWORDS = new Set(
   'le la les un une des de du d l a au aux et en sur sous dans avec qui que pour par son sa ses se ce cet cette est the of'.split(' '),
 );
 const EMPTY_PHRASE = '(pas de réponse…)';
-const ROOM_TTL_MS = 30 * 60 * 1000;
 
 export const DEFAULT_SETTINGS = { rounds: 3, writeTime: 60, guessTime: 30 };
 
@@ -51,11 +50,6 @@ export class Room {
 
   touch() {
     this.lastActivity = Date.now();
-  }
-
-  isStale() {
-    const anyone = [...this.players.values()].some((p) => p.connected);
-    return !anyone && Date.now() - this.lastActivity > ROOM_TTL_MS;
   }
 
   addPlayer(id, name) {
