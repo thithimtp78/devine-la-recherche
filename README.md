@@ -32,9 +32,17 @@ Choisie automatiquement selon les variables d'environnement (ou forcée avec `IM
 
 Si la source échoue, le jeu bascule sur `demo` pour ne pas bloquer la partie. Les recherches secrètes sont dans `server/queries.js`.
 
-## Mettre en ligne
+## Mettre en ligne sur Render (gratuit)
 
-N'importe quel hébergeur Node qui supporte les WebSockets convient (Render, Railway, Fly.io…). Sur Render : « New Web Service », build `npm install`, start `npm start`. Les rooms sont gardées en mémoire, donc une seule instance.
+1. Crée un compte sur https://render.com en te connectant avec GitHub.
+2. Dans le tableau de bord, clique sur **New +** puis **Blueprint**.
+3. Choisis le dépôt `devine-la-recherche`. Render lit le fichier `render.yaml` et prépare le service tout seul.
+4. Il te demande `BRAVE_API_KEY` : laisse vide pour utiliser Openverse (sans clé), ou colle ta clé Brave.
+5. Clique sur **Apply**. Après 2 à 3 minutes, l'adresse du jeu s'affiche (du type `https://devine-la-recherche.onrender.com`). Envoie-la à tes amis.
+
+Bon à savoir : sur l'offre gratuite, le serveur s'endort après 15 minutes sans visite. Le premier qui ouvre le lien attend environ 30 secondes, ensuite tout est fluide. Les rooms sont en mémoire, donc une partie en cours est perdue si le serveur redémarre.
+
+Chaque `git push` sur la branche principale redéploie automatiquement le jeu.
 
 ## Structure
 
