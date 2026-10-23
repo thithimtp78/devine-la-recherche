@@ -22,10 +22,13 @@ const open = async () => {
   await page.goto(base);
   return page;
 };
+// Laisse finir l'animation d'apparition de l'écran avant la capture.
+const snap = async (p, opts) => { await p.waitForTimeout(400); await p.screenshot(opts); };
 const visible = (p, id) => p.waitForSelector(`#${id}:not(.hidden)`, { timeout: 20000 });
 
 const [alice, bob, chloe] = [await open(), await open(), await open()];
 const players = [alice, bob, chloe];
+if (shots) await snap(alice, { path: `${shots}/home.png` });
 await alice.fill('#name', 'Alice');
 await alice.click('#createBtn');
 await visible(alice, 'lobby');
@@ -46,7 +49,7 @@ for (const [p, n] of [[bob, 'Bob'], [chloe, 'Chloé']]) {
   await visible(p, 'lobby');
 }
 await alice.waitForFunction(() => document.querySelectorAll('#lobbyPlayers li').length === 3);
-if (shots) await bob.screenshot({ path: `${shots}/lobby.png` });
+if (shots) await snap(bob, { path: `${shots}/lobby.png` });
 
 await alice.fill('#setRounds', '2');
 await alice.dispatchEvent('#setRounds', 'change');
@@ -54,16 +57,18 @@ await alice.click('#startBtn');
 
 for (let round = 1; round <= 2; round++) {
   await Promise.all(players.map((p) => visible(p, 'write')));
+  if (shots && round === 1) await snap(bob, { path: `${shots}/write.png` });
   for (const [i, p] of players.entries()) {
     await p.fill('#phraseInput', `recherche ${i} manche ${round}`);
     await p.click('#writeForm button');
   }
   await Promise.all(players.map((p) => visible(p, 'guess')));
   await alice.waitForTimeout(200);
-  if (shots && round === 1) await chloe.screenshot({ path: `${shots}/guess.png` });
+  if (shots && round === 1) await snap(chloe, { path: `${shots}/guess.png` });
   for (const p of players) await p.click('#options .option >> nth=0');
   await Promise.all(players.map((p) => visible(p, 'reveal')));
   assert.equal(await bob.locator('#results .result').count(), 3);
+  if (shots && round === 1) await snap(bob, { path: `${shots}/reveal.png`, fullPage: true });
   console.log(`Manche ${round} : résultats affichés chez les 3 joueurs`);
   if (round === 1) {
     // Bob rafraîchit sa page en plein milieu : il doit revenir dans la room.
@@ -75,7 +80,7 @@ for (let round = 1; round <= 2; round++) {
 }
 await Promise.all(players.map((p) => visible(p, 'end')));
 console.log('Classement :', (await chloe.textContent('#finalScores')).replace(/\s+/g, ' ').trim());
-if (shots) await chloe.screenshot({ path: `${shots}/end.png` });
+if (shots) await snap(chloe, { path: `${shots}/end.png` });
 
 // L'hôte rafraîchit : la room est recréée avec le même code et les autres reviennent dans la salle.
 await alice.reload();
